@@ -33,10 +33,37 @@ Find images uploaded recently
 
 ---
 
+## 🌐 Live Deployment
+
+### 🖥️ Frontend (Streamlit)
+**https://tailortalk-ai-drive-agent.streamlit.app/**
+
+### ⚙️ Backend API (Render)
+**https://tailortalk-ai-drive-agent.onrender.com/**
+
+### 📦 GitHub Repository
+**https://github.com/Shalmankursheeth/tailortalk-ai-drive-agent**
+
+---
+
+## 📸 Demo
+
+> Chat with your Google Drive in plain English
+
+![Chat UI — PDF Results](https://your-screenshot-link-1.png)
+![Chat UI — Spreadsheet Results](https://your-screenshot-link-2.png)
+
+> 💡 Replace the above links with actual screenshots from your Streamlit app for a premium look!
+
+---
+
 ## 🏗️ Architecture
 
 ```
 User Message
+     │
+     ▼
+ Streamlit Frontend
      │
      ▼
  FastAPI Backend
@@ -61,12 +88,13 @@ User Message
 
 | Layer | Technology |
 |---|---|
-| LLM | Groq (`llama-3.3-70b-versatile`) |
+| LLM | Groq (`llama-3.1-8b-instant`) |
 | Agent Framework | LangGraph + LangChain |
 | Backend | FastAPI + Uvicorn |
+| Frontend | Streamlit |
 | Drive Integration | Google Drive API v3 |
 | Auth | Google Service Account |
-| Deployment | Render |
+| Deployment | Render + Streamlit Cloud |
 
 ---
 
@@ -79,7 +107,7 @@ tailortalk/
 │   ├── main.py           # FastAPI server
 │   └── requirements.txt
 ├── frontend/
-│   └── index.html        # Chat UI
+│   └── app.py            # Streamlit chat UI
 └── README.md
 ```
 
@@ -90,8 +118,8 @@ tailortalk/
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/yourusername/tailortalk-ai.git
-cd tailortalk-ai
+git clone https://github.com/Shalmankursheeth/tailortalk-ai-drive-agent.git
+cd tailortalk-ai-drive-agent
 ```
 
 ### 2. Install dependencies
@@ -117,10 +145,17 @@ Place your `service_account.json` file in the `/backend` folder.
 
 > Make sure the service account email has **Viewer** access to your Google Drive folder.
 
-### 5. Run the server
+### 5. Run the backend
 
 ```bash
 uvicorn main:app --reload
+```
+
+### 6. Run the frontend
+
+```bash
+cd frontend
+streamlit run app.py
 ```
 
 ---
@@ -142,10 +177,9 @@ uvicorn main:app --reload
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/` | Health check |
+| GET | `/health` | Health check |
 | POST | `/chat` | Send message to agent |
 | GET | `/drive-test` | Test Drive connection |
-| GET | `/debug` | Check env vars |
 
 ### `/chat` Request
 
@@ -168,7 +202,7 @@ uvicorn main:app --reload
 
 ## 🤖 How the Agent Works
 
-1. User sends a natural language message
+1. User sends a natural language message via Streamlit
 2. LangGraph agent passes it to Groq LLM
 3. LLM decides which tool to call (`drive_search`, `list_all_files`, or `get_file_details`)
 4. Tool converts the request into a valid Google Drive API query
