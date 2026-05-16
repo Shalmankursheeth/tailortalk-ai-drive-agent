@@ -58,7 +58,6 @@ Find images uploaded recently
   <img src="assets/results-ui.png" width="900"/>
 </p>
 
-> 💡 Replace the above links with actual screenshots from your Streamlit app for a premium look!
 
 ---
 
