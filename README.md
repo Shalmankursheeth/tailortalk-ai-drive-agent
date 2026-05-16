@@ -1,370 +1,189 @@
-````md
 # 🗂️ TailorTalk AI — Conversational Google Drive Discovery Agent
 
 <div align="center">
 
-<img width="1200" alt="banner" src="https://capsule-render.vercel.app/api?type=waving&color=0:0f172a,50:312e81,100:7c3aed&height=220&section=header&text=TailorTalk%20AI&fontSize=52&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Conversational%20Google%20Drive%20Intelligence&descAlignY=58&descSize=20" />
-
-<br>
+![Banner](https://capsule-render.vercel.app/api?type=waving&color=0:0f172a,50:312e81,100:7c3aed&height=220&section=header&text=TailorTalk%20AI&fontSize=52&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Conversational%20Google%20Drive%20Intelligence&descAlignY=58&descSize=20)
 
 ### ⚡ AI-Powered File Discovery using LangGraph, FastAPI, LangChain & Google Drive API
 
-<p align="center">
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi)
+![LangGraph](https://img.shields.io/badge/LangGraph-Agent-blueviolet?style=for-the-badge)
+![LangChain](https://img.shields.io/badge/LangChain-Tools-green?style=for-the-badge)
+![Groq](https://img.shields.io/badge/Groq-LLM-black?style=for-the-badge)
+![Google Drive](https://img.shields.io/badge/Google%20Drive-API-4285F4?style=for-the-badge&logo=google-drive)
+![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?style=for-the-badge&logo=render)
 
-<img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi" />
-<img src="https://img.shields.io/badge/LangGraph-Agent-blueviolet?style=for-the-badge" />
-<img src="https://img.shields.io/badge/LangChain-Tools-green?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Streamlit-Frontend-ff4b4b?style=for-the-badge&logo=streamlit" />
-<img src="https://img.shields.io/badge/Groq-LLM-black?style=for-the-badge" />
-<img src="https://img.shields.io/badge/Google%20Drive-API-4285F4?style=for-the-badge&logo=google-drive" />
-
-</p>
+</div>
 
 ---
 
-### 🧠 Natural Language → Intelligent Drive Retrieval
+## 🧠 What is TailorTalk AI?
 
-```bash
+TailorTalk AI is a conversational Google Drive agent. You talk to it in plain English — it searches your Drive and returns real files instantly.
+
+No more manually browsing folders. Just ask.
+
+```
 Show all PDFs
 Find invoices from 2024
 Search finance documents
 List spreadsheets
 Find images uploaded recently
-````
-
-</div>
-
----
-
-# ✨ System Architecture
-
-<div align="center">
-
-```mermaid
-flowchart TB
-
-    USER([👤 User])
-
-    UI[🎨 Streamlit Frontend<br/>Premium Conversational UI]
-
-    API[⚡ FastAPI Backend<br/>/chat Endpoint]
-
-    GRAPH[🧠 LangGraph Agent Runtime]
-
-    LLM[🤖 Groq LLM<br/>Llama 3.1]
-
-    TOOLS[🛠️ LangChain Tool Layer]
-
-    SEARCH[🔎 drive_search]
-
-    LIST[📂 list_all_files]
-
-    DETAILS[📄 get_file_details]
-
-    GDRIVE[(☁️ Google Drive API)]
-
-    FILES[📁 PDFs • Docs • Sheets • Images • Videos]
-
-    USER --> UI
-
-    UI --> API
-
-    API --> GRAPH
-
-    GRAPH --> LLM
-
-    LLM --> TOOLS
-
-    TOOLS --> SEARCH
-    TOOLS --> LIST
-    TOOLS --> DETAILS
-
-    SEARCH --> GDRIVE
-    LIST --> GDRIVE
-    DETAILS --> GDRIVE
-
-    GDRIVE --> FILES
-
-    FILES --> API
-
-    API --> UI
-
-    UI --> USER
 ```
 
-</div>
-
 ---
 
-# ⚡ Agent Workflow
+## 🏗️ Architecture
 
-<div align="center">
-
-```mermaid
-sequenceDiagram
-
-    participant U as 👤 User
-    participant S as 🎨 Streamlit
-    participant F as ⚡ FastAPI
-    participant G as 🧠 LangGraph
-    participant L as 🤖 Groq LLM
-    participant T as 🛠️ LangChain Tools
-    participant D as ☁️ Google Drive API
-
-    U->>S: "Show all PDFs"
-
-    S->>F: POST /chat
-
-    F->>G: Start Agent Flow
-
-    G->>L: Analyze User Intent
-
-    L->>T: Select Tool
-
-    T->>D: Execute Drive Query
-
-    D-->>T: Return Matching Files
-
-    T-->>F: Formatted Results
-
-    F-->>S: AI Response
-
-    S-->>U: Display Results
+```
+User Message
+     │
+     ▼
+ FastAPI Backend
+     │
+     ▼
+ LangGraph Agent
+     │
+     ├── drive_search      → Search by query/type/date
+     ├── list_all_files    → List all files recursively
+     └── get_file_details  → Find specific file by name
+     │
+     ▼
+ Google Drive API v3
+     │
+     ▼
+ Formatted Results → User
 ```
 
-</div>
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| LLM | Groq (`llama-3.3-70b-versatile`) |
+| Agent Framework | LangGraph + LangChain |
+| Backend | FastAPI + Uvicorn |
+| Drive Integration | Google Drive API v3 |
+| Auth | Google Service Account |
+| Deployment | Render |
 
 ---
 
-# 🚀 Features
+## 📁 Project Structure
 
-* 🧠 Conversational AI-powered Google Drive search
-* ⚡ LangGraph agent orchestration
-* 🛠️ LangChain tool calling
-* 🔎 Dynamic Google Drive `q` query generation
-* 📄 PDF, Docs, Sheets, Images & Video discovery
-* 📅 Date-based file filtering
-* 🔗 Direct Google Drive links
-* ☁️ Cloud deployment on Render + Streamlit
-* 🎨 Premium futuristic chat interface
-* 🔒 Secure Google Service Account authentication
-
----
-
-# 🧩 Tech Stack
-
-| Layer           | Technology               |
-| --------------- | ------------------------ |
-| Frontend        | Streamlit                |
-| Backend         | FastAPI                  |
-| Agent Framework | LangGraph                |
-| Tool Framework  | LangChain                |
-| LLM             | Groq Llama 3.1           |
-| API Integration | Google Drive API         |
-| Deployment      | Render + Streamlit Cloud |
-
----
-
-# 📂 Project Structure
-
-```bash
-TailorTalk/
-│
+```
+tailortalk/
 ├── backend/
-│   ├── main.py
-│   ├── agent.py
-│   ├── requirements.txt
-│   └── render.yaml
-│
+│   ├── agent.py          # LangGraph agent + Drive tools
+│   ├── main.py           # FastAPI server
+│   └── requirements.txt
 ├── frontend/
-│   ├── app.py
-│   ├── requirements.txt
-│   └── .streamlit/
-│
-├── runtime.txt
-├── README.md
-└── service_account.json
+│   └── index.html        # Chat UI
+└── README.md
 ```
 
 ---
 
-# ⚙️ Local Setup
+## 🚀 Local Setup
 
-## 1️⃣ Clone Repository
+### 1. Clone the repo
 
 ```bash
-git clone YOUR_REPO_URL
-
-cd TailorTalk
+git clone https://github.com/yourusername/tailortalk-ai.git
+cd tailortalk-ai
 ```
 
----
-
-## 2️⃣ Backend Setup
+### 2. Install dependencies
 
 ```bash
 cd backend
-
 pip install -r requirements.txt
-
-uvicorn main:app --reload --port 8000
 ```
 
-Backend runs on:
+### 3. Add environment variables
 
-```bash
-http://localhost:8000
-```
-
----
-
-## 3️⃣ Frontend Setup
-
-```bash
-cd frontend
-
-pip install -r requirements.txt
-
-streamlit run app.py
-```
-
-Frontend runs on:
-
-```bash
-http://localhost:8501
-```
-
----
-
-# 🔑 Environment Variables
-
-## Backend `.env`
+Create a `.env` file in `/backend`:
 
 ```env
 GROQ_API_KEY=your_groq_api_key
-
-GOOGLE_DRIVE_FOLDER_ID=your_drive_folder_id
-
+GOOGLE_DRIVE_FOLDER_ID=your_google_drive_folder_id
 SERVICE_ACCOUNT_FILE=service_account.json
 ```
 
----
+### 4. Add your service account
 
-# ☁️ Deployment
+Place your `service_account.json` file in the `/backend` folder.
 
-# 🚀 Render Backend Deployment
+> Make sure the service account email has **Viewer** access to your Google Drive folder.
 
-### Build Command
-
-```bash
-pip install -r requirements.txt
-```
-
-### Start Command
+### 5. Run the server
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port $PORT
+uvicorn main:app --reload
 ```
 
 ---
 
-# 🎨 Streamlit Deployment
+## ☁️ Render Deployment
 
-Main file:
-
-```bash
-frontend/app.py
-```
-
-Python version:
-
-```bash
-3.11
-```
+1. Push code to GitHub
+2. Create a new **Web Service** on [Render](https://render.com)
+3. Set environment variables:
+   - `GROQ_API_KEY`
+   - `GOOGLE_DRIVE_FOLDER_ID`
+   - `SERVICE_ACCOUNT_FILE` = `/etc/secrets/service_account.json`
+4. Upload `service_account.json` as a **Secret File** at `/etc/secrets/service_account.json`
+5. Deploy 🎉
 
 ---
 
-# ⚠️ Render Free Tier Notes
+## 🔌 API Endpoints
 
-Render free instances automatically sleep after inactivity.
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/` | Health check |
+| POST | `/chat` | Send message to agent |
+| GET | `/drive-test` | Test Drive connection |
+| GET | `/debug` | Check env vars |
 
-⏳ Initial wake-up requests may take:
+### `/chat` Request
 
-```bash
-30–50 seconds
+```json
+{
+  "message": "find all invoice PDFs",
+  "history": []
+}
 ```
 
-After warm-up:
-⚡ responses become fast again.
+### `/chat` Response
 
----
-
-# 🧪 Example Queries
-
-```bash
-Show all PDFs
-
-Find invoices
-
-List images
-
-Show spreadsheets
-
-Find finance files
-
-Search documents from 2024
+```json
+{
+  "response": "Found 3 file(s):\n\n**Spinny invoice.docx**\n..."
+}
 ```
 
 ---
 
-# 🔍 Example Generated Drive Queries
+## 🤖 How the Agent Works
 
-| User Prompt      | Generated Query                      |
-| ---------------- | ------------------------------------ |
-| Show PDFs        | mimeType='application/pdf'           |
-| Find invoices    | name contains 'invoice'              |
-| Finance docs     | fullText contains 'finance'          |
-| Images           | mimeType contains 'image/'           |
-| Files after 2024 | modifiedTime > '2024-01-01T00:00:00' |
+1. User sends a natural language message
+2. LangGraph agent passes it to Groq LLM
+3. LLM decides which tool to call (`drive_search`, `list_all_files`, or `get_file_details`)
+4. Tool converts the request into a valid Google Drive API query
+5. Results are formatted and returned to the user
 
 ---
 
-# 🔐 Security
+## 📄 License
 
-* Read-only Google Drive access
-* Service Account authentication
-* Environment variable protection
-* Secret file deployment support
-
----
-
-# 📈 Future Improvements
-
-* 🔎 Semantic vector search
-* 📄 OCR-powered search
-* 🧠 RAG document Q&A
-* 🎤 Voice assistant integration
-* ⚡ Streaming responses
-* 🗃️ Multi-folder indexing
-* 📊 Analytics dashboard
-
----
-
-# 👨‍💻 Author
-
-## Mohamed Shalman Kursheeth
-
-AI Engineer • Backend Developer • Full Stack Developer
+MIT License — free to use and modify.
 
 ---
 
 <div align="center">
 
-# 🚀 TailorTalk AI
-
-### Conversational Google Drive Intelligence
-
-Built with ❤️ using LangGraph, LangChain, FastAPI, Groq & Google Drive API
+Built with ❤️ using LangGraph · LangChain · FastAPI · Groq · Google Drive API
 
 </div>
-```
