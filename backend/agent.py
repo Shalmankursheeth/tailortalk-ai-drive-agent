@@ -29,7 +29,7 @@ FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
 
 SERVICE_ACCOUNT_FILE = os.getenv(
     "SERVICE_ACCOUNT_FILE",
-    "service_account.json"
+    "/etc/secrets/service_account.json"  # FIX 1: Render secret file path
 )
 
 
@@ -45,6 +45,25 @@ def _get_drive_service():
         credentials=creds,
         cache_discovery=False
     )
+
+
+# FIX 2: Only one definition (duplicate removed)
+def get_all_folder_ids(parent_id):
+    drive = _get_drive_service()
+    folder_ids = [parent_id]
+    query = (
+        f"'{parent_id}' in parents "
+        "and mimeType='application/vnd.google-apps.folder'"
+    )
+    result = drive.files().list(
+        q=query,
+        fields="files(id,name)"
+    ).execute()
+    folders = result.get("files", [])
+    for folder in folders:
+        child_id = folder["id"]
+        folder_ids.extend(get_all_folder_ids(child_id))
+    return folder_ids
 
 
 def quick_drive_test():
@@ -84,33 +103,29 @@ def _format_date(ts: str):
 def _add_folder_scope(query: str):
     if not FOLDER_ID:
         return query
-    all_folder_ids = get_all_folder_ids(FOLDER_ID)
-    parent_conditions = " or ".join(
-        [f"'{fid}' in parents" for fid in all_folder_ids]
-    )
-    return f"({parent_conditions}) and ({query})"
+    folder_ids = get_all_folder_ids(FOLDER_ID)
+    print("ALL FOLDER IDS:", folder_ids)
+    folder_query = " or ".join([
+        f"'{fid}' in parents"
+        for fid in folder_ids
+    ])
+    return f"({folder_query}) and ({query})"
 
 
 def _format_file_list(files: list):
     if not files:
         return "⚠️ No matching files found."
-
     lines = [f"Found **{len(files)} file(s)**:\n"]
-
     for f in files:
         name = f.get("name", "Untitled")
         mime = _mime_label(f.get("mimeType", ""))
         modified = _format_date(f.get("modifiedTime", ""))
         link = f.get("webViewLink", "")
-
         lines.append(f"**{name}**")
         lines.append(f"{mime} · Modified: {modified}")
-
         if link:
             lines.append(f"[🔗 Open in Drive]({link})")
-
         lines.append("")
-
     return "\n".join(lines)
 
 
@@ -121,17 +136,14 @@ def drive_search(query: str):
         drive = _get_drive_service()
         scoped_query = _add_folder_scope(query)
         print("SCOPED QUERY:", scoped_query)
-
         result = drive.files().list(
             q=scoped_query,
             pageSize=20,
             fields="files(id,name,mimeType,modifiedTime,webViewLink,size)",
             orderBy="modifiedTime desc"
         ).execute()
-
         files = result.get("files", [])
         return _format_file_list(files)
-
     except HttpError as e:
         return f"Google Drive API Error: {e.reason}"
     except Exception as e:
@@ -143,37 +155,22 @@ def list_all_files(max_files: int = 25):
     """List all files in Google Drive."""
     try:
         drive = _get_drive_service()
-
-        print("FOLDER_ID:", FOLDER_ID)
-
+        kwargs = {
+            "pageSize": max_files,
+            "fields": "files(id,name,mimeType,modifiedTime,webViewLink,size)",
+            "orderBy": "modifiedTime desc"
+        }
         if FOLDER_ID:
-            # Get all subfolder IDs recursively
-            all_folder_ids = get_all_folder_ids(FOLDER_ID)
-            print("All folder IDs found:", all_folder_ids)
-
-            # Build query: file must be in any of those folders
-            parent_conditions = " or ".join(
-                [f"'{fid}' in parents" for fid in all_folder_ids]
-            )
-            query = f"({parent_conditions}) and mimeType != 'application/vnd.google-apps.folder'"
-
-            result = drive.files().list(
-                q=query,
-                pageSize=max_files,
-                fields="files(id,name,mimeType,modifiedTime,webViewLink,size)",
-                orderBy="modifiedTime desc"
-            ).execute()
-        else:
-            result = drive.files().list(
-                pageSize=max_files,
-                fields="files(id,name,mimeType,modifiedTime,webViewLink,size)",
-                orderBy="modifiedTime desc"
-            ).execute()
-
+            folder_ids = get_all_folder_ids(FOLDER_ID)
+            print("ALL FOLDER IDS:", folder_ids)
+            kwargs["q"] = " or ".join([
+                f"'{fid}' in parents"
+                for fid in folder_ids
+            ])
+        result = drive.files().list(**kwargs).execute()
         files = result.get("files", [])
         print("Files returned:", len(files))
         return _format_file_list(files)
-
     except Exception as e:
         return f"List Error: {str(e)}"
 
@@ -181,7 +178,7 @@ def list_all_files(max_files: int = 25):
 @tool
 def get_file_details(file_name: str):
     """Get details about a specific file."""
-    # FIX: Use .invoke() instead of calling the tool function directly
+    # FIX 3: Use .invoke() not direct call
     query = f"name contains '{file_name}'"
     return drive_search.invoke(query)
 
@@ -298,10 +295,10 @@ class AgentState(TypedDict):
 
 def _get_llm_with_tools():
     llm = ChatGroq(
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",
         api_key=os.getenv("GROQ_API_KEY"),
         temperature=0,
-        max_tokens=300,
+        max_tokens=1200,
     )
     return llm.bind_tools(TOOLS_LIST)
 
@@ -309,38 +306,28 @@ def _get_llm_with_tools():
 def agent_node(state: AgentState):
     print("\n===== AGENT INPUT =====")
     print(state["messages"])
-
     llm = _get_llm_with_tools()
     response = llm.invoke(state["messages"])
-
     print("\n===== AI RESPONSE =====")
     print(response)
-
     print("\n===== TOOL CALLS =====")
     print(response.tool_calls)
-
     return {"messages": [response]}
 
 
 def should_continue(state: AgentState):
     last = state["messages"][-1]
-
     if hasattr(last, "tool_calls") and last.tool_calls:
         return "tools"
-
     return END
 
 
 def build_graph():
     tool_node = ToolNode(TOOLS_LIST)
-
     graph = StateGraph(AgentState)
-
     graph.add_node("agent", agent_node)
     graph.add_node("tools", tool_node)
-
     graph.set_entry_point("agent")
-
     graph.add_conditional_edges(
         "agent",
         should_continue,
@@ -349,9 +336,7 @@ def build_graph():
             END: END
         }
     )
-
     graph.add_edge("tools", END)
-
     return graph.compile()
 
 
@@ -370,12 +355,11 @@ def get_agent_response(user_message: str, history: list):
         messages = [
             SystemMessage(content=SYSTEM_PROMPT)
         ]
-
         for msg in history[-10:]:
             role = msg.get("role")
             content = msg.get("content", "")
 
-            # FIX: Skip old error messages so they don't confuse the LLM
+            # Skip error messages from history
             if content.startswith("⚠️"):
                 continue
 
@@ -387,20 +371,16 @@ def get_agent_response(user_message: str, history: list):
         messages.append(HumanMessage(content=user_message))
 
         graph = _get_graph()
-
         final_state = graph.invoke({"messages": messages})
 
         for msg in reversed(final_state["messages"]):
-
-            # Return tool output FIRST
+            # FIX 4: ToolMessage first, AIMessage as fallback
             if isinstance(msg, ToolMessage):
                 return msg.content
-
-            # Fallback AI response
             if isinstance(msg, AIMessage) and msg.content:
                 return msg.content
 
-        return "I encountered an issue retrieving the files."
+        return "I encountered an issue."
 
     except Exception as e:
         return f"⚠️ Error: {str(e)}"
