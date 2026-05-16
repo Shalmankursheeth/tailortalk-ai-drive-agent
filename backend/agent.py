@@ -14,6 +14,7 @@ from langchain_core.messages import (
     HumanMessage,
     AIMessage,
     SystemMessage,
+    
 )
 from langchain_core.tools import tool
 from langchain_groq import ChatGroq
@@ -452,7 +453,7 @@ def build_graph():
         }
     )
 
-    graph.add_edge("tools", "agent")
+    graph.add_edge("tools", END)
 
     return graph.compile()
 
@@ -510,14 +511,14 @@ def get_agent_response(user_message: str, history: list):
 
         for msg in reversed(final_state["messages"]):
 
-    # Final AI response
-            if isinstance(msg, AIMessage) and msg.content:
-                return msg.content
 
-    # Tool output fallback
+    # Return tool output FIRST
             if isinstance(msg, ToolMessage):
                 return msg.content
 
+    # Fallback AI response
+            if isinstance(msg, AIMessage) and msg.content:
+                return msg.content
         return "I encountered an issue."
 
 
