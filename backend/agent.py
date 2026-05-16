@@ -29,7 +29,7 @@ FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
 
 SERVICE_ACCOUNT_FILE = os.getenv(
     "SERVICE_ACCOUNT_FILE",
-    "service_account.json"
+    "/etc/secrets/service_account.json"
 )
 
 
