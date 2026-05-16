@@ -50,8 +50,13 @@ Find images uploaded recently
 
 > Chat with your Google Drive in plain English
 
-![Chat UI — PDF Results](https://your-screenshot-link-1.png)
-![Chat UI — Spreadsheet Results](https://your-screenshot-link-2.png)
+<p align="center">
+  <img src="assets/home-ui.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="assets/results-ui.png" width="900"/>
+</p>
 
 > 💡 Replace the above links with actual screenshots from your Streamlit app for a premium look!
 
