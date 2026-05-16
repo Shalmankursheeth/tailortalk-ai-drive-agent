@@ -390,10 +390,10 @@ class AgentState(TypedDict):
 def _get_llm_with_tools():
 
     llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
+        model="llama3-8b-8192"
         api_key=os.getenv("GROQ_API_KEY"),
         temperature=0,
-        max_tokens=1200,
+        max_tokens=300,
     )
 
     return llm.bind_tools(TOOLS_LIST)
