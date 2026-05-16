@@ -251,11 +251,7 @@ def list_all_files(max_files: int = 25):
         }
 
         if FOLDER_ID:
-            folder_ids = get_all_folder_ids(FOLDER_ID)
-            kwargs["q"] = " or ".join([
-    f"'{fid}' in parents"
-    for fid in folder_ids
-])
+            kwargs["q"] = f"'{FOLDER_ID}' in parents"
 
         result = drive.files().list(**kwargs).execute()
 
