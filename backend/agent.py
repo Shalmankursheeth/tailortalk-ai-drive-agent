@@ -29,7 +29,7 @@ FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
 
 SERVICE_ACCOUNT_FILE = os.getenv(
     "SERVICE_ACCOUNT_FILE",
-    "/etc/secrets/service_account.json"
+    "service_account.json"
 )
 
 
@@ -84,7 +84,11 @@ def _format_date(ts: str):
 def _add_folder_scope(query: str):
     if not FOLDER_ID:
         return query
-    return f"'{FOLDER_ID}' in parents and ({query})"
+    all_folder_ids = get_all_folder_ids(FOLDER_ID)
+    parent_conditions = " or ".join(
+        [f"'{fid}' in parents" for fid in all_folder_ids]
+    )
+    return f"({parent_conditions}) and ({query})"
 
 
 def _format_file_list(files: list):
@@ -140,21 +144,33 @@ def list_all_files(max_files: int = 25):
     try:
         drive = _get_drive_service()
 
-        # FIX: Debug print to verify env vars are loaded
         print("FOLDER_ID:", FOLDER_ID)
 
-        kwargs = {
-            "pageSize": max_files,
-            "fields": "files(id,name,mimeType,modifiedTime,webViewLink,size)",
-            "orderBy": "modifiedTime desc"
-        }
-
         if FOLDER_ID:
-            kwargs["q"] = f"'{FOLDER_ID}' in parents"
+            # Get all subfolder IDs recursively
+            all_folder_ids = get_all_folder_ids(FOLDER_ID)
+            print("All folder IDs found:", all_folder_ids)
 
-        result = drive.files().list(**kwargs).execute()
+            # Build query: file must be in any of those folders
+            parent_conditions = " or ".join(
+                [f"'{fid}' in parents" for fid in all_folder_ids]
+            )
+            query = f"({parent_conditions}) and mimeType != 'application/vnd.google-apps.folder'"
+
+            result = drive.files().list(
+                q=query,
+                pageSize=max_files,
+                fields="files(id,name,mimeType,modifiedTime,webViewLink,size)",
+                orderBy="modifiedTime desc"
+            ).execute()
+        else:
+            result = drive.files().list(
+                pageSize=max_files,
+                fields="files(id,name,mimeType,modifiedTime,webViewLink,size)",
+                orderBy="modifiedTime desc"
+            ).execute()
+
         files = result.get("files", [])
-
         print("Files returned:", len(files))
         return _format_file_list(files)
 
