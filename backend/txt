@@ -1,0 +1,556 @@
+# TailorTalk — Final Project Files
+
+---
+
+# backend/main.py
+
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from agent import get_agent_response
+
+app = FastAPI(title="TailorTalk Drive Agent", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+
+
+class ChatResponse(BaseModel):
+    response: str
+
+
+@app.get("/")
+def root():
+    return {
+        "message": "TailorTalk Backend Running"
+    }
+
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(req: ChatRequest):
+    response = get_agent_response(req.message, req.history)
+    return ChatResponse(response=response)
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "service": "TailorTalk Drive Agent"
+    }
+```
+
+---
+
+# backend/requirements.txt
+
+```txt
+fastapi
+uvicorn
+python-dotenv
+google-api-python-client
+google-auth
+langchain
+langgraph
+langchain-groq
+groq
+pydantic
+```
+
+---
+
+# backend/.env.example
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+GOOGLE_DRIVE_FOLDER_ID=your_google_drive_folder_id_here
+SERVICE_ACCOUNT_FILE=service_account.json
+```
+
+---
+
+# backend/render.yaml
+
+```yaml
+services:
+  - type: web
+    name: tailortalk-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        sync: false
+      - key: SERVICE_ACCOUNT_FILE
+        sync: false
+```
+
+---
+
+# backend/agent.py
+
+```python
+import os
+import functools
+from datetime import datetime
+from typing import TypedDict, Annotated, Sequence
+import operator
+
+from dotenv import load_dotenv
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+from langchain_core.messages import (
+    BaseMessage,
+    HumanMessage,
+    AIMessage,
+    SystemMessage,
+)
+from langchain_core.tools import tool
+from langchain_groq import ChatGroq
+
+from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
+
+load_dotenv()
+
+SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+
+FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
+
+SERVICE_ACCOUNT_FILE = os.getenv(
+    "SERVICE_ACCOUNT_FILE",
+    "service_account.json"
+)
+
+
+@functools.lru_cache(maxsize=1)
+def _get_drive_service():
+
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=SCOPES
+    )
+
+    return build(
+        "drive",
+        "v3",
+        credentials=creds,
+        cache_discovery=False
+    )
+
+
+
+def _mime_label(mime: str):
+
+    labels = {
+        "application/pdf": "📄 PDF",
+        "application/vnd.google-apps.document": "📝 Google Doc",
+        "application/vnd.google-apps.spreadsheet": "📊 Google Sheet",
+        "application/vnd.google-apps.presentation": "📑 Google Slides",
+        "application/vnd.google-apps.folder": "📁 Folder",
+        "image/jpeg": "🖼️ JPEG Image",
+        "image/png": "🖼️ PNG Image",
+    }
+
+    return labels.get(
+        mime,
+        f"📎 {mime.split('/')[-1]}"
+    )
+
+
+
+def _format_date(ts: str):
+
+    try:
+        return datetime.fromisoformat(
+            ts.replace("Z", "+00:00")
+        ).strftime("%b %d, %Y")
+
+    except Exception:
+        return ts
+
+
+
+def _add_folder_scope(query: str):
+
+    if FOLDER_ID:
+        return f"'{FOLDER_ID}' in parents and ({query})"
+
+    return query
+
+
+
+def _format_file_list(files: list):
+
+    if not files:
+        return "⚠️ No matching files found."
+
+    lines = [f"Found **{len(files)} file(s)**:\n"]
+
+    for f in files:
+
+        name = f.get("name", "Untitled")
+        mime = f.get("mimeType", "")
+        modified = _format_date(
+            f.get("modifiedTime", "")
+        )
+
+        link = f.get("webViewLink", "")
+
+        lines.append(f"### {_mime_label(mime)} {name}")
+        lines.append(f"Modified: {modified}")
+
+        if link:
+            lines.append(f"[🔗 Open File]({link})")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+@tool
+def drive_search(query: str):
+    """Search Google Drive using Drive API q syntax."""
+
+    try:
+
+        drive = _get_drive_service()
+
+        scoped_query = _add_folder_scope(query)
+
+        result = drive.files().list(
+            q=scoped_query,
+            pageSize=20,
+            fields="files(id,name,mimeType,modifiedTime,webViewLink,size)",
+            orderBy="modifiedTime desc"
+        ).execute()
+
+        files = result.get("files", [])
+
+        return _format_file_list(files)
+
+    except HttpError as e:
+        return f"Google Drive API Error: {e.reason}"
+
+    except Exception as e:
+        return f"Search Error: {str(e)}"
+
+
+@tool
+def list_all_files(max_files: int = 25):
+    """List all files in Google Drive."""
+
+    try:
+
+        drive = _get_drive_service()
+
+        kwargs = {
+            "pageSize": max_files,
+            "fields": "files(id,name,mimeType,modifiedTime,webViewLink,size)",
+            "orderBy": "modifiedTime desc"
+        }
+
+        if FOLDER_ID:
+            kwargs["q"] = f"'{FOLDER_ID}' in parents"
+
+        result = drive.files().list(**kwargs).execute()
+
+        files = result.get("files", [])
+
+        return _format_file_list(files)
+
+    except Exception as e:
+        return f"List Error: {str(e)}"
+
+
+@tool
+def get_file_details(file_name: str):
+    """Get details about a specific file."""
+
+    query = f"name contains '{file_name}'"
+
+    return drive_search(query)
+
+
+TOOLS_LIST = [
+    drive_search,
+    list_all_files,
+    get_file_details
+]
+
+
+SYSTEM_PROMPT = """
+You are TailorTalk AI.
+
+You are a Google Drive assistant.
+
+RULES:
+- ALWAYS use tools
+- NEVER hallucinate files
+- NEVER generate Python code
+
+Examples:
+
+PDFs:
+mimeType = 'application/pdf'
+
+Invoices:
+name contains 'invoice'
+
+Finance:
+fullText contains 'finance'
+
+Recent files:
+modifiedTime > '2024-01-01T00:00:00'
+"""
+
+
+class AgentState(TypedDict):
+    messages: Annotated[
+        Sequence[BaseMessage],
+        operator.add
+    ]
+
+
+
+def _get_llm_with_tools():
+
+    llm = ChatGroq(
+        model="llama-3.3-70b-versatile",
+        api_key=os.getenv("GROQ_API_KEY"),
+        temperature=0,
+        max_tokens=1200,
+    )
+
+    return llm.bind_tools(TOOLS_LIST)
+
+
+
+def agent_node(state: AgentState):
+
+    llm = _get_llm_with_tools()
+
+    response = llm.invoke(state["messages"])
+
+    return {
+        "messages": [response]
+    }
+
+
+
+def should_continue(state: AgentState):
+
+    last = state["messages"][-1]
+
+    if hasattr(last, "tool_calls") and last.tool_calls:
+        return "tools"
+
+    return END
+
+
+
+def build_graph():
+
+    tool_node = ToolNode(TOOLS_LIST)
+
+    graph = StateGraph(AgentState)
+
+    graph.add_node("agent", agent_node)
+    graph.add_node("tools", tool_node)
+
+    graph.set_entry_point("agent")
+
+    graph.add_conditional_edges(
+        "agent",
+        should_continue,
+        {
+            "tools": "tools",
+            END: END
+        }
+    )
+
+    graph.add_edge("tools", "agent")
+
+    return graph.compile()
+
+
+_GRAPH = None
+
+
+
+def _get_graph():
+
+    global _GRAPH
+
+    if _GRAPH is None:
+        _GRAPH = build_graph()
+
+    return _GRAPH
+
+
+
+def get_agent_response(user_message: str, history: list):
+
+    try:
+
+        messages = [
+            SystemMessage(content=SYSTEM_PROMPT)
+        ]
+
+        for msg in history[-10:]:
+
+            role = msg.get("role")
+            content = msg.get("content")
+
+            if role == "user":
+                messages.append(
+                    HumanMessage(content=content)
+                )
+
+            elif role == "assistant":
+                messages.append(
+                    AIMessage(content=content)
+                )
+
+
+        messages.append(
+            HumanMessage(content=user_message)
+        )
+
+
+        graph = _get_graph()
+
+        final_state = graph.invoke({
+            "messages": messages
+        })
+
+
+        for msg in reversed(final_state["messages"]):
+
+            if isinstance(msg, AIMessage) and msg.content:
+                return msg.content
+
+
+        return "I encountered an issue."
+
+
+    except Exception as e:
+        return f"⚠️ Error: {str(e)}"
+```
+
+---
+
+# frontend/requirements.txt
+
+```txt
+streamlit==1.35.0
+requests==2.32.3
+```
+
+---
+
+# frontend/.streamlit/config.toml
+
+```toml
+[theme]
+base = "dark"
+primaryColor = "#6366f1"
+backgroundColor = "#07080d"
+secondaryBackgroundColor = "#0d0e1a"
+textColor = "#c8c7e0"
+```
+
+---
+
+# frontend/app.py
+
+Use the polished Streamlit frontend you already generated.
+It is already strong enough for submission.
+
+---
+
+# .gitignore
+
+```gitignore
+.env
+*.env
+service_account.json
+
+__pycache__/
+*.py[cod]
+
+.venv/
+venv/
+
+.streamlit/secrets.toml
+```
+
+---
+
+# FINAL COMMANDS
+
+## Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+## Frontend
+
+```bash
+cd frontend
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+---
+
+# FINAL DEPLOYMENT
+
+## Render
+
+Environment variables:
+
+```env
+GROQ_API_KEY=your_key
+GOOGLE_DRIVE_FOLDER_ID=your_folder_id
+SERVICE_ACCOUNT_FILE=/etc/secrets/service_account.json
+```
+
+Upload:
+
+```text
+service_account.json
+```
+
+as a Secret File.
+
+---
+
+# FINAL TEST QUERIES
+
+```text
+show all files
+show all pdfs
+find invoices
+list images
+show spreadsheets
+files from 2024
+tell me about budget
+```
