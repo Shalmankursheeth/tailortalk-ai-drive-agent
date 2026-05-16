@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-BACKEND_URL = os.getenv("BACKEND_URL", https://tailortalk-ai-drive-agent.onrender.com/")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://tailortalk-ai-drive-agent.onrender.com/")
 
 # ── Session state ─────────────────────────────────────────────────────────────
 for _k, _v in [("messages", []), ("is_processing", False), ("input_key", 0)]:
