@@ -134,16 +134,7 @@ def _add_folder_scope(query: str):
     if not FOLDER_ID:
         return query
 
-    folder_ids = get_all_folder_ids(FOLDER_ID)
-
-    print("ALL FOLDER IDS:", folder_ids)
-
-    folder_query = " or ".join([
-        f"'{fid}' in parents"
-        for fid in folder_ids
-    ])
-
-    return f"({folder_query}) and ({query})"
+    return f"'{FOLDER_ID}' in parents and ({query})"
 def _format_file_list(files: list):
 
     if not files:
