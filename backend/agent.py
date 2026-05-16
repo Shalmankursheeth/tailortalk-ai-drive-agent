@@ -47,6 +47,15 @@ def _get_drive_service():
     )
 
 
+def quick_drive_test():
+    drive = _get_drive_service()
+    result = drive.files().list(
+        pageSize=5,
+        fields="files(name)"
+    ).execute()
+    return result
+
+
 def _mime_label(mime: str):
     labels = {
         "application/pdf": "📄 PDF",
