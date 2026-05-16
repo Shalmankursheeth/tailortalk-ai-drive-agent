@@ -452,7 +452,7 @@ def build_graph():
         }
     )
 
-    graph.add_edge("tools", END)
+    graph.add_edge("tools", "agent")
 
     return graph.compile()
 
